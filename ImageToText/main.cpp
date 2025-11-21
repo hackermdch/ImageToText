@@ -37,7 +37,7 @@ void Process(Arguments args)
 	while (converter.HasNext())
 	{
 		auto [row, col, text] = converter.NextBlock();
-		project.AddText(std::make_unique<App::TextBox>(args.parent, std::format("image_{}:{}", row, col), text, args.posX + col * args.grainSize - 1, args.posY - row * args.grainSize, args.resolutionX, args.height));
+		project.AddText(std::make_unique<App::TextBox>(args.parent, std::format("image_{}:{}", row, col), text, args.posX + col * args.grainSize, args.posY - row * args.grainSize, args.resolutionX, args.height));
 	}
 	project.Save(args.outputFile);
 }
@@ -47,7 +47,7 @@ int main(int argc, char** argv)
 	try
 	{
 #if _DEBUG
-		Process({ "test.gil","out.gil","test.png",560,315,0,315 / 2.f });
+		Process({ "1.gil","out.gil","1.png",560,315,0,315 / 2.f });
 #else
 		if (argc < 5)
 		{

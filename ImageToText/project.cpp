@@ -44,15 +44,11 @@ static VarInt ToVarInt(uint32_t value) noexcept
 	return r;
 }
 
-Project::Project(const std::filesystem::path& path)
+Project::Project(const std::filesystem::path& path) : guid0(1073741839)
 {
 	std::ifstream in(path, std::ios::binary);
 	root = Decode(in);
-	std::vector<uint32_t> guids;
-	for (auto w : UIWidgets()->Children()) guids.emplace_back(GetGuid(w));
-	std::ranges::sort(guids);
-	guid0 = guids[0];
-	this->guids.insert_range(guids);
+	for (auto w : UIWidgets()->Children()) guids.insert(GetGuid(w));
 }
 
 void Project::AddText(std::unique_ptr<TextBox> text)
