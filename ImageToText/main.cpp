@@ -13,7 +13,7 @@ struct Arguments
 	float posY;
 	float height = 25;
 	int grainSize = 5;
-	unsigned parent = 1073741825;
+	unsigned layout = 1073741825;
 };
 
 void Help()
@@ -24,20 +24,20 @@ void Help()
 	std::println("  <image file>   The image file to convert to text.");
 	std::println("  <resolution>   The resolution of input image.");
 	std::println("Extra options: ");
-	std::println("  -pos=x,y   Set screen location.");
+	std::println("  -p=x,y   Set screen location.");
 	std::println("  -h=i   Set text box height.");
 	std::println("  -g=i   Set pixel granularity.");
-	std::println("  -p=guid   Set parent group.");
+	std::println("  -l=guid   Set belonging layout.");
 }
 
-void Process(Arguments args)
+void Process(const Arguments& args)
 {
-	App::Project project(args.inputFile);
+	App::Project project(args.inputFile, args.layout);
 	Image::Converter converter(args.imageFile, args.resolutionX, args.resolutionY, args.grainSize);
 	while (converter.HasNext())
 	{
 		auto [row, col, text] = converter.NextBlock();
-		project.AddText(std::make_unique<App::TextBox>(args.parent, std::format("image_{}:{}", row, col), text, args.posX + col * args.grainSize, args.posY - row * args.grainSize, args.resolutionX, args.height));
+		project.CurrentCombination()->AddText(std::format("image_{}:{}", row, col), text, args.posX + col * args.grainSize, args.posY - row * args.grainSize, args.resolutionX, args.height);
 	}
 	project.Save(args.outputFile);
 }
@@ -71,7 +71,7 @@ int main(int argc, char** argv)
 		}
 		for (int i = 5; i < argc; i++)
 		{
-			if (std::string opt = argv[i]; opt.starts_with("-pos="))
+			if (std::string opt = argv[i]; opt.starts_with("-p="))
 			{
 				auto val = opt.substr(5);
 				auto pos = val.find(',');
@@ -85,7 +85,7 @@ int main(int argc, char** argv)
 			}
 			else if (opt.starts_with("-h=")) args.height = std::stof(opt.substr(3));
 			else if (opt.starts_with("-g=")) args.grainSize = std::stoi(opt.substr(3));
-			else if (opt.starts_with("-p=")) args.parent = std::stoul(opt.substr(3));
+			else if (opt.starts_with("-l=")) args.layout = std::stoul(opt.substr(3));
 			else
 			{
 				Help();
