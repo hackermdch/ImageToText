@@ -36,9 +36,16 @@ export namespace App
 		Bottom
 	};
 
-	class TextBox
+	class IWidget
 	{
-		friend Combination;
+	public:
+		virtual void Create(Ugc::INode* widgets) = 0;
+		virtual uint32_t Guid() const = 0;
+		virtual ~IWidget() = default;
+	};
+
+	class TextBox : public IWidget
+	{
 		uint32_t guid;
 	public:
 		uint32_t parent;
@@ -50,13 +57,13 @@ export namespace App
 		HorizontalAlign hAlign; // not implemented
 		VerticalAlign vAlign; // not implemented
 
-		TextBox(uint32_t parent, std::string name, std::string content, float x = 0, float y = 0, float width = 100, float height = 40, Origin origin = Origin::Center, HorizontalAlign ha = HorizontalAlign::Left, VerticalAlign va = VerticalAlign::Bottom);
-		void Create(Ugc::INode* widgets);
+		TextBox(uint32_t guid, uint32_t parent, std::string name, std::string content, float x = 0, float y = 0, float width = 100, float height = 40, Origin origin = Origin::Center, HorizontalAlign ha = HorizontalAlign::Left, VerticalAlign va = VerticalAlign::Bottom);
+		void Create(Ugc::INode* widgets) override;
+		uint32_t Guid() const override { return guid; }
 	};
 
-	class Combination
+	class Combination : public IWidget
 	{
-		friend Project;
 		uint32_t guid;
 		uint32_t layout;
 		Project& project;
@@ -65,14 +72,16 @@ export namespace App
 	public:
 		Combination(uint32_t guid, uint32_t layout, const std::string& name, Project& project);
 		void AddText(std::string name, std::string content, float x = 0, float y = 0, float width = 100, float height = 40, Origin origin = Origin::Center, HorizontalAlign ha = HorizontalAlign::Left, VerticalAlign va = VerticalAlign::Bottom);
-		void Create(Ugc::INode* widgets);
+		void Create(Ugc::INode* widgets) override;
 		bool Full() const { return texts.size() >= 19; }
+		uint32_t Guid() const override { return guid; }
 	};
 
 	class Project
 	{
 		std::unique_ptr<Ugc::INode> root;
-		std::vector<std::unique_ptr<Combination>> appends;
+		std::vector<std::unique_ptr<IWidget>> appends;
+		Combination* current;
 		std::unordered_set<uint32_t> guids;
 		uint32_t guid0, layout;
 
@@ -80,6 +89,7 @@ export namespace App
 		Combination* AddCombination(const std::string& name);
 	public:
 		explicit Project(const std::filesystem::path& path, uint32_t layout);
+		void AddText(std::string name, std::string content, float x = 0, float y = 0, float width = 100, float height = 40, Origin origin = Origin::Center, HorizontalAlign ha = HorizontalAlign::Left, VerticalAlign va = VerticalAlign::Bottom);
 		uint32_t NextGuid();
 		Combination* CurrentCombination();
 		void Save(const std::filesystem::path& path);

@@ -37,7 +37,7 @@ void Process(const Arguments& args)
 	while (converter.HasNext())
 	{
 		auto [row, col, text] = converter.NextBlock();
-		project.CurrentCombination()->AddText(std::format("image_{}:{}", row, col), text, args.posX + col * args.grainSize, args.posY - row * args.grainSize, args.resolutionX, args.height);
+		project.AddText(std::format("image_{}:{}", row, col), text, args.posX + col * args.grainSize, args.posY - row * args.grainSize, args.resolutionX, args.height);
 	}
 	project.Save(args.outputFile);
 }
@@ -92,7 +92,7 @@ int main(int argc, char** argv)
 				return -1;
 			}
 		}
-		Process(std::move(args));
+		Process(args);
 		std::println("Processed successfully");
 #endif
 	}

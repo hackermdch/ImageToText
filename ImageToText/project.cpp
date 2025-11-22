@@ -51,6 +51,11 @@ Project::Project(const std::filesystem::path& path, uint32_t layout) : guid0(107
 	for (auto w : UIWidgets()->Children()) guids.insert(GetGuid(w));
 }
 
+void Project::AddText(std::string name, std::string content, float x, float y, float width, float height, Origin origin, HorizontalAlign ha, VerticalAlign va)
+{
+	appends.emplace_back(std::make_unique<TextBox>(NextGuid(), layout, name, content, x, y, width, height, origin, ha, va));
+}
+
 uint32_t Project::NextGuid()
 {
 	auto guid = guid0;
@@ -62,15 +67,15 @@ uint32_t Project::NextGuid()
 
 Combination* Project::CurrentCombination()
 {
-	if (appends.empty()) return AddCombination("com0");
-	auto& c = appends.back();
-	if (c->Full()) return AddCombination(std::format("com{}", appends.size()));
-	return c.get();
+	if (!current) return current = AddCombination("com0");
+	if (current->Full()) return current = AddCombination(std::format("com{}", appends.size()));
+	return current;
 }
 
 Combination* Project::AddCombination(const std::string& name)
 {
-	return appends.emplace_back(std::make_unique<Combination>(NextGuid(), layout, name, *this)).get();
+	auto& c = appends.emplace_back(std::make_unique<Combination>(NextGuid(), layout, name, *this));
+	return (Combination*)c.get();
 }
 
 void Project::Save(const std::filesystem::path& path)
@@ -81,10 +86,10 @@ void Project::Save(const std::filesystem::path& path)
 	auto data = arr->Get<std::vector<uint8_t>>();
 	std::vector<VarInt> datas;
 
-	for (auto& com : appends)
+	for (auto& w : appends)
 	{
-		com->Create(widgets);
-		datas.emplace_back(ToVarInt(com->guid));
+		w->Create(widgets);
+		datas.emplace_back(ToVarInt(w->Guid()));
 	}
 	size_t total_size = 0;
 	for (auto& [value, size] : datas) total_size += size;
@@ -161,7 +166,7 @@ static void BaseData(INode* node, const std::string& name)
 	);
 }
 
-TextBox::TextBox(uint32_t parent, std::string name, std::string content, float x, float y, float width, float height, Origin origin, HorizontalAlign ha, VerticalAlign va) : guid(0), parent(parent), name(std::move(name)), content(std::move(content)), x(x), y(y), width(width), height(height), origin(origin), hAlign(ha), vAlign(va)
+TextBox::TextBox(uint32_t guid, uint32_t parent, std::string name, std::string content, float x, float y, float width, float height, Origin origin, HorizontalAlign ha, VerticalAlign va) : guid(guid), parent(parent), name(std::move(name)), content(std::move(content)), x(x), y(y), width(width), height(height), origin(origin), hAlign(ha), vAlign(va)
 {
 }
 
@@ -284,8 +289,7 @@ Combination::Combination(uint32_t guid, uint32_t layout, const std::string& name
 
 void Combination::AddText(std::string name, std::string content, float x, float y, float width, float height, Origin origin, HorizontalAlign ha, VerticalAlign va)
 {
-	auto text = texts.emplace_back(std::make_unique<TextBox>(guid, name, content, x, y, width, height, origin, ha, va)).get();
-	text->guid = project.NextGuid();
+	texts.emplace_back(std::make_unique<TextBox>(project.NextGuid(), guid, name, content, x, y, width, height, origin, ha, va));
 }
 
 void Combination::Create(INode* widgets)
@@ -294,7 +298,7 @@ void Combination::Create(INode* widgets)
 	for (auto& text : texts)
 	{
 		text->Create(widgets);
-		datas.emplace_back(ToVarInt(text->guid));
+		datas.emplace_back(ToVarInt(text->Guid()));
 	}
 	size_t total_size = 0;
 	for (auto& [value, size] : datas) total_size += size;
