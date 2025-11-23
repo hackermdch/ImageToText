@@ -28,6 +28,8 @@ void Help()
 	std::println("  -h=i   Set text box height.");
 	std::println("  -g=i   Set pixel granularity.");
 	std::println("  -l=guid   Set belonging layout.");
+	std::println();
+	std::println("--- program version {} ---", "1.0.2");
 }
 
 void Process(const Arguments& args)
@@ -44,17 +46,17 @@ void Process(const Arguments& args)
 
 int main(int argc, char** argv)
 {
+#if _DEBUG
+	Process({ "1.gil","out.gil","1.png",560,315,0,315 / 2.f });
+#else
+	Arguments args{};
 	try
 	{
-#if _DEBUG
-		Process({ "1.gil","out.gil","1.png",560,315,0,315 / 2.f });
-#else
 		if (argc < 5)
 		{
 			Help();
 			return -1;
 		}
-		Arguments args{};
 		args.inputFile = argv[1];
 		args.outputFile = argv[2];
 		args.imageFile = argv[3];
@@ -88,10 +90,19 @@ int main(int argc, char** argv)
 			else if (opt.starts_with("-l=")) args.layout = std::stoul(opt.substr(3));
 			else
 			{
+				std::println("Unknown argument: {}\n", opt);
 				Help();
 				return -1;
 			}
 		}
+	}
+	catch (...)
+	{
+		std::println("Input arguments are incorrect\n");
+		Help();
+		return -1;
+	}
+	try {
 		Process(args);
 		std::println("Processed successfully");
 #endif

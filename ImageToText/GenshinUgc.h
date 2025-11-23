@@ -27,6 +27,7 @@ namespace Ugc
 		virtual std::vector<INode*> Children() = 0;
 		virtual std::string Dump() = 0;
 		virtual INode* CreateNode(uint32_t id, std::string name, NodeType type, std::any value) = 0;
+		virtual INode* AddClone(INode* node) = 0;
 		virtual void RemoveNode(INode* child) = 0;
 		virtual void Id(uint32_t id) = 0;
 		virtual void Name(const std::string& name) = 0;
