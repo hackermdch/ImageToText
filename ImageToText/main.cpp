@@ -105,11 +105,11 @@ int main(int argc, char** argv)
 	try {
 		Process(args);
 		std::println("Processed successfully");
-#endif
 	}
 	catch (...)
 	{
 		std::println("Unknown error");
 		return -1;
 	}
+#endif
 }
