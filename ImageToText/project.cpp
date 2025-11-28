@@ -6,49 +6,15 @@ module project;
 using namespace App;
 using namespace Ugc;
 
+using enum NodeType;
+
 static auto empty_data = std::vector<uint8_t>();
-
-static uint32_t GetGuid(INode* widget)
-{
-	return widget->Find(501)->Children()[0]->Get<uint32_t>();
-}
-
-static INode* With(INode* node, const std::function<void(INode*)>& action)
-{
-	action(node);
-	return node;
-}
-
-static INode* FindNode(const std::vector<INode*>& array, const std::function<bool(INode*)>& predicate)
-{
-	for (auto node : array) if (predicate(node)) return node;
-	return nullptr;
-}
-
-struct VarInt
-{
-	uint8_t data[8]{};
-	size_t size = 0;
-};
-
-static VarInt ToVarInt(uint32_t value) noexcept
-{
-	VarInt r{};
-	for (; r.size == 0 || (value && r.size < 8); ++r.size)
-	{
-		uint8_t v = value & 0x7F;
-		value >>= 7;
-		if (value) v |= 0x80;
-		r.data[r.size] = v;
-	}
-	return r;
-}
 
 Project::Project(const std::filesystem::path& path, uint32_t layout) : guid0(1073741839), layout(layout)
 {
 	std::ifstream in(path, std::ios::binary);
 	root = Decode(in);
-	for (auto w : UIWidgets()->Children()) guids.insert(GetGuid(w));
+	for (auto w : UIWidgets().Children()) guids.insert(*w->Find("guid"));
 }
 
 void Project::AddText(std::string name, std::string content, float x, float y, float width, float height, Origin origin, HorizontalAlign ha, VerticalAlign va)
@@ -80,29 +46,15 @@ Combination* Project::AddCombination(const std::string& name)
 
 void Project::Save(const std::filesystem::path& path)
 {
-	auto widgets = UIWidgets();
-	auto l = FindNode(widgets->Children(), [this](INode* node) { return GetGuid(node) == layout; });
-	auto arr = l->Find(503)->Children()[0];
-	auto data = arr->Get<std::vector<uint8_t>>();
-	std::vector<VarInt> datas;
-
+	auto& widgets = UIWidgets();
+	auto l = widgets.Find([this](const INode* node) { return (uint32_t)node->Ref()["guid"] == layout; });
+	auto children = l->Find("children")->Get<IntArray>();
 	for (auto& w : appends)
 	{
 		w->Create(widgets);
-		datas.emplace_back(ToVarInt(w->Guid()));
+		children.emplace_back(w->Guid());
 	}
-	size_t total_size = 0;
-	for (auto& [value, size] : datas) total_size += size;
-
-	auto ptr = data.size();
-	data.resize(data.size() + total_size);
-	for (auto& [value, size] : datas)
-	{
-		memcpy(data.data() + ptr, value, size);
-		ptr += size;
-	}
-	arr->Value(data);
-
+	l->Ref()["children"] = children;
 	std::ofstream out(path, std::ios::binary);
 	Encode(root.get(), out);
 #if DEBUG_DUMP
@@ -112,54 +64,46 @@ void Project::Save(const std::filesystem::path& path)
 #endif
 }
 
-INode* Project::UIWidgets()
+INode& Project::UIWidgets() const
 {
-	return root->Find(4)->Find(9)->Find(502);
+	return root->Ref()[4]["ui_layout"]["widgets"];
 }
 
-static void BaseData(INode* node, uint32_t guid, uint32_t parent)
+static void BaseData(INode& node, uint32_t guid, uint32_t parent)
 {
-	node->CreateNode(501, true)->CreateNode(501, guid);
-	With(node->CreateNode(502, true)->CreateNode(502), [guid](INode* node)
+	node["guid"] = guid;
+	node["info"][-1].With([guid](INode& node)
 		{
-			node->CreateNode(11)->CreateNode(501, guid);
-			node->CreateNode(501, 1u);
-			node->CreateNode(502, 5u);
+			node[11]["guid"] = guid;
+			node[501] = 1u;
+			node[502] = 5u;
 		}
 	);
-	node->CreateNode(504, parent);
+	node["parent"] = parent;
 }
 
-static void BaseData(INode* node, const std::string& name)
+static void BaseData(INode& node, const std::string& name)
 {
-	With(node->CreateNode(505), [name](INode* node)
+	node[-1].With([name](INode& node)
 		{
-			node->CreateNode(12)->CreateNode(501, name);
-			node->CreateNode(501, 2u);
-			node->CreateNode(502, 15u);
+			node[12]["name"] = name;
+			node[501] = 2u;
+			node[502] = 15u;
 		}
 	);
-	With(node->CreateNode(505), [](INode* node)
+	node[-1].With([](INode& node)
 		{
-			With(node->CreateNode(14), [](INode* node)
+			node[14][15] = empty_data;
+			node[14][501] = 5u;
+			node[501] = 4u;
+			node[502] = 23u;
+			node["content"].With([](INode& node)
 				{
-					node->CreateNode(15, empty_data);
-					node->CreateNode(501, 5u);
-				}
-			);
-			node->CreateNode(501, 4u);
-			node->CreateNode(502, 23u);
-			With(node->CreateNode(503), [](INode* node)
-				{
-					With(node->CreateNode(14), [](INode* node)
-						{
-							node->CreateNode(15, empty_data);
-							node->CreateNode(501, 5u);
-						}
-					);
-					node->CreateNode(501, 5u);
-					node->CreateNode(502, 23u);
-					node->CreateNode(503, 1u);
+					node[14][15] = empty_data;
+					node[14][501] = 5u;
+					node[501] = 5u;
+					node[502] = 23u;
+					node[503] = 1u;
 				}
 			);
 		}
@@ -170,111 +114,68 @@ TextBox::TextBox(uint32_t guid, uint32_t parent, std::string name, std::string c
 {
 }
 
-void TextBox::Create(INode* widgets)
+void TextBox::Create(INode& widgets)
 {
-	auto obj = widgets->CreateNode(502);
+	auto& obj = widgets[-1];
 	BaseData(obj, guid, parent);
-	With(obj->CreateNode(505, true), [this](INode* node)
+	obj["data"].With([this](INode& node)
 		{
 			BaseData(node, name);
-			With(node->CreateNode(505), [this](INode* node)
+			node[-1].With([this](INode& node)
 				{
-					With(node->CreateNode(11), [this](INode* node)
+					node[11][12] = empty_data;
+					node[11][501] = 2u;
+					node[501] = 1u;
+					node[502] = 12u;
+					node["content"].With([this](INode& node)
 						{
-							node->CreateNode(12, empty_data);
-							node->CreateNode(501, 2u);
-						}
-					);
-					node->CreateNode(501, 1u);
-					node->CreateNode(502, 12u);
-					With(node->CreateNode(503), [this](INode* node)
-						{
-							With(node->CreateNode(13), [this](INode* node)
+							node["frame"][501] = 2u;
+							node["frame"][12][502] = 3u;
+							node["frame"]["multi_platform"]["devices"].With([this](INode& node)
 								{
-									With(node->CreateNode(12), [this](INode* node)
-										{
-											With(node->CreateNode(501, true), [this](INode* node)
-												{
-													for (uint32_t i = 0; i < 4; i++)
-													{
-														With(node->CreateNode(501), [this, i](INode* node)
-															{
-																if (i != 0) node->CreateNode(501, i);
-																With(node->CreateNode(502), [this](INode* node)
-																	{
-																		With(node->CreateNode(501), [this](INode* node)
-																			{
-																				node->CreateNode(1, 1.0f);
-																				node->CreateNode(2, 1.0f);
-																				node->CreateNode(3, 1.0f);
-																			}
-																		);
-																		With(node->CreateNode(502), [this](INode* node)
-																			{
-																				node->CreateNode(501, .5f);
-																				node->CreateNode(502, .5f);
-																			}
-																		);
-																		With(node->CreateNode(503), [this](INode* node)
-																			{
-																				node->CreateNode(501, .5f);
-																				node->CreateNode(502, .5f);
-																			}
-																		);
-																		With(node->CreateNode(504), [this](INode* node)
-																			{
-																				node->CreateNode(501, x);
-																				node->CreateNode(502, y);
-																			}
-																		);
-																		With(node->CreateNode(505), [this](INode* node)
-																			{
-																				node->CreateNode(501, width);
-																				node->CreateNode(502, height);
-																			}
-																		);
-																		With(node->CreateNode(506), [this](INode* node)
-																			{
-																				node->CreateNode(501, .5f);
-																				node->CreateNode(502, .5f);
-																			}
-																		);
-																	}
-																);
-															}
-														);
-													}
-												}
-											);
-											node->CreateNode(502, 3u);
-										}
-									);
-									node->CreateNode(501, 2u);
+									for (uint32_t i = 0; i < 4; i++)
+									{
+										auto& n = node[-1];
+										if (i != 0) n[501] = i;
+										n["ui_rect"].With([this](INode& node)
+											{
+												node[501][1] = 1.0f;
+												node[501][2] = 1.0f;
+												node[501][3] = 1.0f;
+												node["anchor"]["nx"] = .5f;
+												node["anchor"]["ny"] = .5f;
+												node["origin"]["nx"] = .5f;
+												node["origin"]["ny"] = .5f;
+												node["center"]["nx"] = .5f;
+												node["center"]["ny"] = .5f;
+												node["position"]["x"] = x;
+												node["position"]["y"] = y;
+												node["size"]["width"] = width;
+												node["size"]["height"] = height;
+											}
+										);
+									}
 								}
 							);
-							node->CreateNode(501, 4u);
-							node->CreateNode(502, 12u);
-							node->CreateNode(503, 1u);
+							node[501] = 4u;
+							node[502] = 12u;
+							node[503] = 1u;
 						}
 					);
 				}
 			);
-			With(node->CreateNode(505), [this](INode* node)
+			node[-1].With([this](INode& node)
 				{
-					node->CreateNode(19, empty_data);
-					node->CreateNode(501, 9u);
-					node->CreateNode(502, 25u);
-					With(node->CreateNode(503), [this](INode* node)
+					node["text_box"] = empty_data;
+					node[501] = 9u;
+					node[502] = 25u;
+					node["content"].With([this](INode& node)
 						{
-							With(node->CreateNode(19), [this](INode* node)
-								{
-									node->CreateNode(502, 10u);
-									node->CreateNode(505)->CreateNode(501, content);
-								}
-							);
-							node->CreateNode(501, 10u);
-							node->CreateNode(502, 25u);
-							node->CreateNode(503, 1u);
+							node["text_box"]["size"] = 10u;
+							node["text_box"]["content"]["text"] = content;
+							node[501] = 10u;
+							node[502] = 25u;
+							node[503] = 1u;
 						}
 					);
 				}
@@ -292,41 +193,32 @@ void Combination::AddText(std::string name, std::string content, float x, float 
 	texts.emplace_back(std::make_unique<TextBox>(project.NextGuid(), guid, name, content, x, y, width, height, origin, ha, va));
 }
 
-void Combination::Create(INode* widgets)
+void Combination::Create(INode& widgets)
 {
-	std::vector<VarInt> datas;
+	std::vector<uint64_t> children;
 	for (auto& text : texts)
 	{
 		text->Create(widgets);
-		datas.emplace_back(ToVarInt(text->Guid()));
-	}
-	size_t total_size = 0;
-	for (auto& [value, size] : datas) total_size += size;
-	std::vector<uint8_t> data(total_size);
-	uint32_t ptr = 0;
-	for (auto& [value, size] : datas)
-	{
-		memcpy(data.data() + ptr, value, size);
-		ptr += size;
+		children.emplace_back(text->Guid());
 	}
 
-	auto obj = widgets->CreateNode(502);
+	auto& obj = widgets[-1];
 	BaseData(obj, guid, layout);
-	With(obj->Find(502)->CreateNode(502), [this](INode* node)
+	obj["info"][-1].With([this](INode& node)
 		{
-			node->CreateNode(16, empty_data);
-			node->CreateNode(501, 6u);
-			node->CreateNode(502, 13u);
-			With(node->CreateNode(503), [this](INode* node)
+			node[16] = empty_data;
+			node[501] = 6u;
+			node[502] = 13u;
+			node[503].With([this](INode& node)
 				{
-					node->CreateNode(15, empty_data);
-					node->CreateNode(501, 6u);
-					node->CreateNode(502, 13u);
-					node->CreateNode(503, 1u);
+					node[15] = empty_data;
+					node[501] = 6u;
+					node[502] = 13u;
+					node[503] = 1u;
 				}
 			);
 		}
 	);
-	obj->CreateNode(503, true)->CreateNode(503, data);
-	BaseData(obj->CreateNode(505, true), name);
+	obj["children"] = children;
+	BaseData(obj["data"], name);
 }

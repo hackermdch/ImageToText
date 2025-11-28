@@ -39,7 +39,7 @@ export namespace App
 	class IWidget
 	{
 	public:
-		virtual void Create(Ugc::INode* widgets) = 0;
+		virtual void Create(Ugc::INode& widgets) = 0;
 		virtual uint32_t Guid() const = 0;
 		virtual ~IWidget() = default;
 	};
@@ -58,7 +58,7 @@ export namespace App
 		VerticalAlign vAlign; // not implemented
 
 		TextBox(uint32_t guid, uint32_t parent, std::string name, std::string content, float x = 0, float y = 0, float width = 100, float height = 40, Origin origin = Origin::Center, HorizontalAlign ha = HorizontalAlign::Left, VerticalAlign va = VerticalAlign::Bottom);
-		void Create(Ugc::INode* widgets) override;
+		void Create(Ugc::INode& widgets) override;
 		uint32_t Guid() const override { return guid; }
 	};
 
@@ -72,7 +72,7 @@ export namespace App
 	public:
 		Combination(uint32_t guid, uint32_t layout, const std::string& name, Project& project);
 		void AddText(std::string name, std::string content, float x = 0, float y = 0, float width = 100, float height = 40, Origin origin = Origin::Center, HorizontalAlign ha = HorizontalAlign::Left, VerticalAlign va = VerticalAlign::Bottom);
-		void Create(Ugc::INode* widgets) override;
+		void Create(Ugc::INode& widgets) override;
 		bool Full() const { return texts.size() >= 19; }
 		uint32_t Guid() const override { return guid; }
 	};
@@ -85,7 +85,7 @@ export namespace App
 		std::unordered_set<uint32_t> guids;
 		uint32_t guid0, layout;
 
-		Ugc::INode* UIWidgets();
+		Ugc::INode& UIWidgets() const;
 		Combination* AddCombination(const std::string& name);
 	public:
 		explicit Project(const std::filesystem::path& path, uint32_t layout);
